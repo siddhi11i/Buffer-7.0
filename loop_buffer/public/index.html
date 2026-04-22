@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Waste Collection | AI Router</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
+    
+    <style>
+        :root {
+            --bg-dark: #0f172a;
+            --panel-bg: #1e293b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --primary: #3b82f6;
+            --primary-hover: #2563eb;
+            --success: #10b981;
+            --warning: #f59e0b;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', system-ui, sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* ----- Login Overlay ----- */
+        #login-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(15, 23, 42, 0.95);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .login-box {
+            background: var(--panel-bg);
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            width: 320px;
+            text-align: center;
+            border: 1px solid #334155;
+        }
+        
+        .login-box h2 { color: var(--primary); margin-top: 0; }
+        .login-box input, .login-box select { 
+            width: 90%; 
+            margin-bottom: 15px; 
+            padding: 10px;
+            background: #334155;
+            border: 1px solid #475569;
+            color: white;
+            border-radius: 6px;
+        }
+
+        /* ----- Map & UI Panel ----- */
+        #map { flex-grow: 1; height: 100%; z-index: 1; }
+
+        #sidebar {
+            width: 420px;
+            background-color: var(--panel-bg);
+            padding: 24px;
+            box-shadow: -4px 0 15px rgba(0,0,0,0.5);
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            overflow-y: auto;
+            transform: translateX(100%);
+            transition: transform 0.3s ease;
+        }
+
+        #sidebar.active { transform: translateX(0); }
+
+        h1 { font-size: 1.5rem; margin: 0; color: var(--primary); }
+        .subtitle { color: var(--text-muted); font-size: 0.9rem; margin-top: -15px; margin-bottom: 10px; }
+
+        .control-group { display: flex; flex-direction: column; gap: 8px; }
+        label { font-size: 0.9rem; font-weight: 600; }
+
+        button {
+            padding: 12px;
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+        }
+
+        button:hover { background-color: var(--primary-hover); }
+        button.secondary { background-color: #475569; }
+        button.secondary:hover { background-color: #334155; }
+        
+        .location-box {
+            background: #334155;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            border-left: 4px solid var(--warning);
+        }
+
+        .results {
+            background: #334155;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid var(--success);
+            display: none;
+        }
+        .results h3 { margin-top: 0; margin-bottom: 10px; }
+
+        .stat {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-family: monospace;
+            font-size: 1rem;
+        }
+
+        .badge {
+            background: var(--warning);
+            color: #000;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            font-weight: bold;
+        }
+
+        #error-msg {
+            color: #ef4444;
+            display: none;
+            padding: 10px;
+            background: rgba(239, 68, 68, 0.1);
+            border-radius: 6px;
+        }
+        
+        #success-msg {
+            color: var(--success);
+            display: none;
+            padding: 10px;
+            background: rgba(16, 185, 129, 0.1);
+            border-radius: 6px;
+        }
+
+        .user-greeting {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #0f172a;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+        }
+
+        .logout-btn { background: transparent; color: var(--text-muted); border: 1px solid var(--text-muted); padding: 4px 8px; font-size: 0.8rem; width: auto;}
+
+        /* Leaflet Routing overrides for dark theme */
+        .leaflet-routing-container {
+            background-color: var(--panel-bg) !important;
+            color: var(--text-main) !important;
+            padding: 10px;
+            border-radius: 8px;
+            max-height: 40vh;
+            overflow-y: auto;
+        }
+        .leaflet-routing-alt, .leaflet-routing-geocode { border-bottom: 1px solid #334155; }
+        .leaflet-routing-alt h2 { color: var(--text-main); font-size: 1rem; }
+    </style>
+</head>
+<body>
+
+    <!-- Auth Overlay -->
+    <div id="login-overlay">
+        <div class="login-box">
+            <h2>Waste Network DB</h2>
+            <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 25px;">Identify yourself to continue.</p>
+            
+            <input type="text" id="usernameInput" placeholder="Enter Full Name" autocomplete="off">
+            <select id="roleInput">
+                <option value="user">Resident (Submit Pickup Request)</option>
+                <option value="driver">Driver (Optimize Route Map)</option>
+            </select>
+            
+            <button id="loginBtn">Access System</button>
+        </div>
+    </div>
+
+    <!-- Map Engine -->
+    <div id="map"></div>
+
+    <!-- UI Panel -->
+    <div id="sidebar">
+        <div class="user-greeting">
+            <span>Welcome, <strong id="displayUsername" style="color: var(--primary);">User</strong></span>
+            <button id="logoutBtn" class="logout-btn">Logout</button>
+        </div>
+
+        <div>
+            <h1>Waste Collection AI</h1>
+            <p class="subtitle" id="roleSubtitle">Role Subtitle</p>
+        </div>
+
+        <!-- SHARED LOCATION SETTER -->
+        <div class="control-group">
+            <label id="locLabel">1. Set Location</label>
+            <div class="location-box" id="locStatus">Waiting for location...</div>
+            <div style="display: flex; gap: 10px;">
+                <button id="liveLocBtn" class="secondary" style="flex: 1; font-size: 0.85rem;">📍 Auto GPS</button>
+                <button id="pinLocBtn" class="secondary" style="flex: 1; font-size: 0.85rem;">🗺️ Map Click</button>
+            </div>
+        </div>
+
+        <!-- RESIDENT VIEW -->
+        <div id="resident-view" style="display:none; margin-top: 15px; border-top: 1px solid #334155; padding-top: 15px;">
+            <button id="requestPickupBtn" style="font-size: 1.1rem; padding: 15px;">📥 Send Pickup Request</button>
+            <div id="success-msg" style="margin-top: 10px; text-align:center;">Request logged into central system.</div>
+        </div>
+
+        <!-- DRIVER VIEW -->
+        <div id="driver-view" style="display:none; margin-top: 15px; border-top: 1px solid #334155; padding-top: 15px;">
+            <div class="control-group" style="margin-bottom: 15px;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <label>Network Status</label>
+                    <button id="refreshNetworkBtn" class="secondary" style="width: auto; padding: 4px 10px; font-size: 0.8rem;">🔄 Sync</button>
+                </div>
+                <div class="location-box" style="border-left-color: var(--success);" id="networkState">Pending Requests: 0</div>
+            </div>
+
+            <button id="optimizeBtn" style="font-size: 1.1rem; padding: 15px;">🚀 Analyze & Render Route</button>
+        </div>
+        
+        <div id="error-msg"></div>
+
+        <!-- Results Card -->
+        <div id="resultContainer" class="results">
+            <!-- Results injected here -->
+        </div>
+    </div>
+
+    <!-- Leaflet JS + Routing Machine -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
