@@ -68,3 +68,6 @@ node server.js
 Open `http://localhost:3000` in your browser.
 
 *Pro-Tip for testing: Open two tabs! Use Tab 1 as a "Resident" to deploy 5 pins across the map. Use Tab 2 as the "Driver" to pull those pins and trace the optimal roadmap.* 
+
+
+Drive Link of Video: https://drive.google.com/drive/folders/1QSZhFFFaUDx2Fn3KAHxxRKOd2yV4Y-0r?usp=drive_link
