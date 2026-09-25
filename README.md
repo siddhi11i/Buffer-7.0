@@ -1,3 +1,5 @@
+LIVE @ https://buffer-7.vercel.app/
+
 # 🌱 Smart Waste Routing & Optimization AI
 **Team:** `Ctrl+Alt+Defeat` | **Domain:** `GreenTech`
 
